@@ -10,21 +10,60 @@ import Cocoa
 
 class ViewController: NSViewController {
     
-    var time = [0.00]
-    var unModifiedResults: Array<Double> = []
-    var simulatedTemperature: Array<Double> = []
-    var outputPower: Array<Double> = []
-    var setpoint = 18.0;
+    // --- Simulation variables --- //
+    
+    //Temperature of environment
+    var ambientTemperature = 20.0
+    
+    //Target temperature
+    var setpoint = 18.0
+    
+    //Starting temperature of simulation
+    let startingTemperature = 20.3
     
     //Minutes in between each sample
-    var sampleTime = 0.1
+    let sampleTime = 0.1
+    
+    //Mass of substance in container
+    let massOfSubstance = 0.01 * 72 * 1.204 //0.01 is m^3 to L, the box holds 72 L, and the density of air (kg/m^3) at 20 C is 1.204
+    
+    //SHC of substance in container
+    let specificHeatCapacityOfSubstance = 1000.0//1 kJ required to raise 1 kg of air temperature by 1 C, this is temperature dependent
+    
+    //Thermal conductivity of container
+    let containerThermalConductivity = 0.03
+    
+    //Exterior area of box in m^2
+    let containerArea = 1.4136
+    
+    //Maximum energy that cooling mechanism can dissipate per minute
+    let energyMax = 7740.0 //Qmax (max heat pumping capacity) is 43 W, which is 43J/s, which is 2580 J/minute since there are 3, then there are 7740 J/min
+    
+    //PID constants
+    let Kp = 55.5
+    let Ki = 0.01
+    let Kd = 1.0
+    
+    
+   
+    // --- Result variables --- //
+    // ~~~Indexes of results correspond with time index~~~
+    
+    //Starting time (as a double)
+    var time = [0.00]
+    
+    //Array storing power percentage calculated by PID
+    var outputPower: Array<Double> = []
+    
+    //Array storing simulated results
+    var simulatedTemperature: Array<Double> = []
+    
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         // Do any additional setup after loading the view.
         createTimeArray(enablePrint: false)
-        unModifiedTempFunction(enablePrint: false)
         simulateEffect(enableExternalEnergyPrint: false, enableOutputPowerPrint: false, enableOutputEnergyPrint: false, enableEnergyChangePrint: false, enableTemperatureChangePrint: false, enableSimTempPrint: false)
     }
 
@@ -51,28 +90,8 @@ class ViewController: NSViewController {
         }
     }
     
-    func unModifiedTempFunction(enablePrint: Bool) {
-        // Function f(t) with no modelling of change in temperature
-        let timeArraySize = time.endIndex
-        var i = 0
-        while (timeArraySize > i) {
-            let result = (0.3 * pow(2.71828183, -1 * time[i]))
-            let result2 = cos((20 * Double.pi / 7) * time[i])
-            let result3 = (result * result2 + 20) * 100
-            let resultRound = result3.rounded() / 100
-            unModifiedResults.append(resultRound)
-            i = i + 1
-            if (enablePrint == true) {
-                print(resultRound)
-            }
-        }
-    }
-    
     func pidOutput(measuredFunction: Array<Double>) -> Double {
         // Function u(t), finds derivative, integral and proportional error. Calculates INSTANTANEOUS OUTPUT
-        let Kp = 55.5
-        let Ki = 0.01
-        let Kd = 1.0
         var errorFunction: Array<Double> = []
         
         //Create error function
@@ -118,22 +137,10 @@ class ViewController: NSViewController {
     }
     
     func simulateEffect(enableExternalEnergyPrint:Bool, enableOutputPowerPrint: Bool,enableOutputEnergyPrint: Bool, enableEnergyChangePrint:Bool, enableTemperatureChangePrint: Bool, enableSimTempPrint: Bool) {
-        //0.01 is m^3 to L, the box holds 72 L, and the density of air (kg/m^3) at 20 C is 1.204
-        let massAir = 0.01 * 72 * 1.204
-        //1 kJ required to raise 1 kg of air temperature by 1 C, this is temperature dependent
-        let specificHeatCapacityAir = 1000.0
-        //Found online
-        let styrofoamThermalConductivity = 0.03
-        
-        //In m^2
-        let boxArea = 1.4136
-        
-        let ambientTemperature = 20.0
-        
         var timeStep = 0
         
         //Set up first simulated temperature
-        simulatedTemperature.append(unModifiedResults[0])
+        simulatedTemperature.append(startingTemperature)
         
         //Calculate first output value
         outputPower.append(pidOutput(measuredFunction: simulatedTemperature))
@@ -148,15 +155,15 @@ class ViewController: NSViewController {
                 i = i + 1
             }
             //External energy is given as positive when temperature > ambient, as such needs to be subtracted from energy of thermoelectric coolers
-            let externalEnergy = styrofoamThermalConductivity * boxArea * (simulatedTemperature[timeStep] - ambientTemperature)
+            let externalEnergy = containerThermalConductivity * containerArea * (simulatedTemperature[timeStep] - ambientTemperature)
             if (enableExternalEnergyPrint) {
                 print(externalEnergy)
             }
             
             //Change of energy from output
             //Proportional to output power
-            //Qmax (max heat pumping capacity) is 43 W, which is 43J/s, which is 2580 J/minute since there are 3, then there are 7740 J/min
-            let outputEnergy = 7740 * (outputPower[timeStep]/100) * sampleTime
+            
+            let outputEnergy = energyMax * (outputPower[timeStep]/100) * sampleTime
             
             if (enableOutputPowerPrint) {
                 print(outputPower[timeStep])
@@ -167,7 +174,7 @@ class ViewController: NSViewController {
             }
             
             //Effect on system, using q=mc(deltaT), q/mc=deltaT
-            let temperatureChange = ((outputEnergy + externalEnergy)/1000) / (specificHeatCapacityAir * massAir)
+            let temperatureChange = ((outputEnergy + externalEnergy)/1000) / (specificHeatCapacityOfSubstance * massOfSubstance)
             simulatedTemperature.append(simulatedTemperature[timeStep] - temperatureChange)
             if (enableEnergyChangePrint) {
                 print(outputEnergy + externalEnergy)
