@@ -22,7 +22,10 @@ class ViewController: NSViewController {
     let startingTemperature = 20.3
     
     //Minutes in between each sample
-    let sampleTime = 0.1
+    let sampleTime: Double = 0.1
+    
+    //Minutes of simulation
+    let runtime: Double = 5000.0
     
     //Mass of substance in container
     let massOfSubstance = 0.01 * 72 * 1.204 //0.01 is m^3 to L, the box holds 72 L, and the density of air (kg/m^3) at 20 C is 1.204
@@ -40,9 +43,9 @@ class ViewController: NSViewController {
     let energyMax = 7740.0 //Qmax (max heat pumping capacity) is 43 W, which is 43J/s, which is 2580 J/minute since there are 3, then there are 7740 J/min
     
     //PID constants
-    let Kp = 55.5
-    let Ki = 0.01
-    let Kd = 1.0
+    let Kp = 0.5
+    let Ki = 1.00
+    let Kd = 1.00
     
     
    
@@ -64,7 +67,7 @@ class ViewController: NSViewController {
 
         // Do any additional setup after loading the view.
         createTimeArray(enablePrint: false)
-        simulateEffect(enableExternalEnergyPrint: false, enableOutputPowerPrint: false, enableOutputEnergyPrint: false, enableEnergyChangePrint: false, enableTemperatureChangePrint: false, enableSimTempPrint: false)
+        simulateEffect(enableExternalEnergyPrint: false, enableOutputPowerPrint: false, enableOutputEnergyPrint: true, enableEnergyChangePrint: false, enableTemperatureChangePrint: false, enableSimTempPrint: false)
     }
 
     override var representedObject: Any? {
@@ -78,8 +81,8 @@ class ViewController: NSViewController {
         if (enablePrint == true) {
             print(time[0])
         }
-        // Create array separated by 0.01 interval up to 50
-        while (time[i] < 5000) {
+        // Create array separated by sample time interval up to the runtime of the simulation
+        while (time[i] < runtime) {
             let tNum = ((sampleTime) + time[i]) * 100
             let tNumRound = tNum.rounded() / 100
             time.append(tNumRound)
